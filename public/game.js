@@ -102,6 +102,16 @@ function resize() {
   CELL = Math.max(8, Math.min(cw, ch));
   canvas.width  = COLS * CELL;
   canvas.height = ROWS * CELL;
+
+  // Show HUD title only when there's vertical gap above the canvas
+  const hud   = document.getElementById('hud');
+  const title = document.getElementById('hud-title');
+  const canvasH = ROWS * CELL;
+  const wrapH   = wrap.clientHeight;
+  const hudH    = hud.getBoundingClientRect().height;
+  const totalH  = window.innerHeight;
+  const spare   = totalH - canvasH - hudH;
+  title.style.display = spare > 28 ? 'block' : 'none';
 }
 window.addEventListener('resize', () => { resize(); if (!gameRunning) drawScene(); });
 
