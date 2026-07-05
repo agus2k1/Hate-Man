@@ -49,6 +49,8 @@ const DEATH_MESSAGES = [
   ['Ridícul@',       'fx-glitch',     '#00cfff'],
   ['Inútil',         'fx-flicker',    '#c8ff00'],
   ['Horrible',       'fx-typewriter', '#ff57a0'],
+  ['Das pena',       'fx-scatter',    '#ff4444'],
+  ['Sos de cuarta',  'fx-scatter',    '#00cfff'],
 ];
 
 let typewriterTimeout = null;
@@ -503,6 +505,7 @@ function startGame() {
   player.x = player.tc * CELL + CELL/2;
   player.y = player.tr * CELL + CELL/2;
 
+  stopScatter();
   pacmans = [];
   wave = 0;
   spawnPac(1,  30,  1, false, PACMAN1_SPEED, 0);
@@ -522,8 +525,34 @@ function startGame() {
   });
 }
 
+let scatterIntervals = [];
+
+function stopScatter() {
+  scatterIntervals.forEach(id => clearInterval(id));
+  scatterIntervals = [];
+  document.querySelectorAll('.scatter-clone').forEach(el => el.remove());
+}
+
+function startScatter(text, color) {
+  const overlay = document.getElementById('overlay');
+  const launch = () => {
+    const el = document.createElement('span');
+    el.className = 'scatter-clone';
+    el.textContent = text;
+    el.style.setProperty('--dc-clone', color);
+    el.style.left = (5 + Math.random() * 80) + '%';
+    el.style.top  = (5 + Math.random() * 80) + '%';
+    overlay.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  };
+  // burst then keep going
+  for (let i = 0; i < 6; i++) setTimeout(launch, i * 120);
+  scatterIntervals.push(setInterval(launch, 500));
+}
+
 function applyDeathEffect(title, text, fx, color) {
   if (typewriterTimeout !== null) { clearTimeout(typewriterTimeout); typewriterTimeout = null; }
+  stopScatter();
 
   title.className = '';
   title.style.setProperty('--dc', color);
@@ -542,6 +571,10 @@ function applyDeathEffect(title, text, fx, color) {
       }
     };
     type();
+  } else if (fx === 'fx-scatter') {
+    title.classList.add('fx-scatter');
+    title.textContent = text;
+    startScatter(text, color);
   } else {
     title.classList.add(fx);
     title.textContent = text;

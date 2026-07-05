@@ -101,6 +101,28 @@
       animation: blink 0.7s step-start infinite;
     }
 
+    #overlay h1.fx-scatter {
+      color: var(--dc, #ff4444);
+      text-shadow: 0 0 16px color-mix(in srgb, var(--dc, #ff4444) 70%, transparent);
+    }
+
+    .scatter-clone {
+      position: absolute;
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(14px, 3.5vw, 28px);
+      color: var(--dc-clone, #ff4444);
+      pointer-events: none;
+      white-space: nowrap;
+      animation: scatter-fade 0.9s ease-out forwards;
+    }
+
+    @keyframes scatter-fade {
+      0%   { opacity: 0;   transform: scale(0.6); }
+      20%  { opacity: 1;   transform: scale(1.05); }
+      80%  { opacity: 0.8; transform: scale(1); }
+      100% { opacity: 0;   transform: scale(0.8) translateY(-12px); }
+    }
+
     @keyframes glitch {
       0%   { transform: translate(0,0) skewX(0deg); }
       20%  { transform: translate(-3px, 1px) skewX(-2deg); }
