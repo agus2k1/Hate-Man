@@ -12,7 +12,12 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #000;
+      background-color: #0a0a0a;
+      background-image:
+        radial-gradient(ellipse at 20% 30%, rgba(207,87,223,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, rgba(255,255,0,0.05) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' x='0' y='0' fill='%23ffffff' opacity='0.03'/%3E%3Crect width='1' height='1' x='2' y='2' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: auto, auto, 4px 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -68,7 +73,7 @@
     }
 
     #overlay {
-      position: absolute;
+      position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.82);
       display: flex;
@@ -224,7 +229,7 @@
 
     <div id="overlay">
       <h1 id="overlay-title">HATE-MAN</h1>
-      <p id="overlay-msg"><br>¡Escapá de Pacman!<br><br>Mantené presionado para mover el joystick.</p>
+      <p id="overlay-msg"><br>¡Escapá de los Pacman!<br><br>Mantené presionado para mover el joystick.</p>
       <div class="score-display" id="overlay-score" style="display:none"></div>
       <button id="btn-start">JUGAR</button>
     </div>
