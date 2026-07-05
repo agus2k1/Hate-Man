@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Ghost Escape - Pacman Inverso</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: 'Press Start 2P', monospace;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #hud {
+      color: #fff;
+      font-size: clamp(10px, 2.5vw, 16px);
+      padding: 6px 12px;
+      display: flex;
+      gap: 24px;
+      z-index: 10;
+    }
+
+    #hud span { color: #ff0; }
+
+    #canvas-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      width: 100%;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 20;
+    }
+
+    #overlay h1 {
+      color: #ff0;
+      font-size: clamp(28px, 7vw, 56px);
+      text-align: center;
+      line-height: 1.3;
+      max-width: 90vw;
+      text-shadow: 0 0 18px #ff0a, 0 0 40px #ff06;
+    }
+
+    /* ── death effect classes — color driven by --dc CSS var set from JS ── */
+    #overlay h1.fx-glitch {
+      color: var(--dc, #cf57df);
+      text-shadow: 0 0 18px color-mix(in srgb, var(--dc, #cf57df) 67%, transparent),
+                   0 0 40px color-mix(in srgb, var(--dc, #cf57df) 33%, transparent);
+      animation: glitch 0.13s infinite;
+    }
+
+    #overlay h1.fx-flicker {
+      color: var(--dc, #cf57df);
+      text-shadow: 0 0 24px var(--dc, #cf57df);
+      animation: flicker 0.9s infinite;
+    }
+
+    #overlay h1.fx-shake {
+      color: var(--dc, #ff4444);
+      text-shadow: 0 0 20px color-mix(in srgb, var(--dc, #ff4444) 80%, transparent);
+      animation: shake 0.08s infinite;
+    }
+
+    #overlay h1.fx-pulse {
+      color: var(--dc, #cf57df);
+      animation: pulse-size 0.6s ease-in-out infinite alternate;
+    }
+
+    #overlay h1.fx-typewriter {
+      color: var(--dc, #00ff99);
+      text-shadow: 0 0 12px color-mix(in srgb, var(--dc, #00ff99) 60%, transparent);
+    }
+
+    #overlay h1.fx-typewriter .cursor {
+      animation: blink 0.7s step-start infinite;
+    }
+
+    @keyframes glitch {
+      0%   { transform: translate(0,0) skewX(0deg); }
+      20%  { transform: translate(-3px, 1px) skewX(-2deg); }
+      40%  { transform: translate(3px, -1px) skewX(1deg); }
+      60%  { transform: translate(-1px, 2px) skewX(0deg); }
+      80%  { transform: translate(2px, -2px) skewX(2deg); }
+      100% { transform: translate(0,0) skewX(0deg); }
+    }
+
+    @keyframes flicker {
+      0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+      20%, 22%, 24%, 55%                      { opacity: 0.1; }
+    }
+
+    @keyframes shake {
+      0%   { transform: translate(0,0); }
+      25%  { transform: translate(-4px, 1px); }
+      50%  { transform: translate(4px, -1px); }
+      75%  { transform: translate(-2px, 2px); }
+      100% { transform: translate(0,0); }
+    }
+
+    @keyframes pulse-size {
+      from { transform: scale(1);
+             text-shadow: 0 0 10px color-mix(in srgb, var(--dc,#cf57df) 53%, transparent); }
+      to   { transform: scale(1.08);
+             text-shadow: 0 0 35px color-mix(in srgb, var(--dc,#cf57df) 80%, transparent); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0; }
+    }
+
+    #overlay p {
+      color: #fff;
+      font-size: clamp(13px, 3.5vw, 20px);
+      text-align: center;
+      max-width: 320px;
+      line-height: 2;
+    }
+
+    #overlay .score-display {
+      color: #0ff;
+      font-size: clamp(14px, 4vw, 24px);
+    }
+
+    #btn-start {
+      background: #cf57df;
+      color: #fff;
+      border: 3px solid #fff;
+      padding: 16px 36px;
+      font-family: inherit;
+      font-size: clamp(13px, 3.5vw, 20px);
+      cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 0 14px #cf57df88;
+      transition: background 0.1s;
+    }
+
+    #btn-start:active { background: #a03db0; }
+
+    #overlay.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div>TIEMPO: <span id="score">0</span>s</div>
+    <div>MEJOR: <span id="best">0</span>s</div>
+  </div>
+
+  <div id="canvas-wrapper">
+    <canvas id="game"></canvas>
+
+    <div id="overlay">
+      <h1 id="overlay-title">HATE-MAN</h1>
+      <p id="overlay-msg">Sos el fantasma.<br>¡Escapá de Pacman!<br><br>Mantené presionado para mover el joystick.</p>
+      <div class="score-display" id="overlay-score" style="display:none"></div>
+      <button id="btn-start">JUGAR</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
