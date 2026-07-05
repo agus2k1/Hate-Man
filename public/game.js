@@ -480,7 +480,7 @@ function gameLoop(ts) {
   }
 
   // All dots cleared → reset map, keep pacmans, add one more random
-  if (!dotsRemaining()) {
+  if ((tile === 0 || tile === 3) && !dotsRemaining()) {
     wave++;
     map = cloneMap();
     const newSpeed = PACMAN2_SPEED + wave * 0.4;
