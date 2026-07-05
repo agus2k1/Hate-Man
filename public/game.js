@@ -41,16 +41,41 @@ const ROWS = RAW_MAP.length;
 // Palette: #cf57df violeta | #ffff00 amarillo | #ff4444 rojo | #00ff99 verde neón
 //          #ff9900 naranja | #00cfff cian      | #ff57a0 rosa | #c8ff00 lima
 const DEATH_MESSAGES = [
-  ['Sos malisim@',   'fx-glitch',     '#cf57df'],
-  ['Sos un bolud@',  'fx-shake',      '#ff4444'],
-  ['Das vergüenza',  'fx-flicker',    '#ff9900'],
-  ['Qué cringe',     'fx-pulse',      '#ff57a0'],
-  ['No tenés idea',  'fx-typewriter', '#00ff99'],
-  ['Ridícul@',       'fx-glitch',     '#00cfff'],
+  ['Sos malisim@',   'fx-explode',    '#ff9900'],
+  ['Sos un bolud@',  'fx-static',     '#ffffff'],
+  ['Das vergüenza',  'fx-wave',       '#ff57a0'],
+  ['Qué cringe',     'fx-neon-flicker','#00cfff'],
+  ['No tenés idea',  'fx-chromatic',  '#ffffff'],
+  ['Ridícul@',       'fx-matrix',     '#00ff99'],
   ['Inútil',         'fx-flicker',    '#c8ff00'],
   ['Horrible',       'fx-typewriter', '#ff57a0'],
   ['Das pena',       'fx-scatter',    '#ff4444'],
-  ['Sos de cuarta',  'fx-scatter',    '#00cfff'],
+  ['Sos de cuarta',  'fx-zoom-out',   '#c8ff00'],
+];
+
+const HATE_STATS = [
+  'El 67% de los usuarios ha visto contenido de odio en línea.',
+  'Hasta el 85% del odio sigue visible años después de publicarse.',
+  'El 87% de los contenidos hostiles en redes utiliza lenguaje agresivo explícito.',
+  '2 de cada 3 personas se encuentran con discursos de odio en internet con frecuencia.',
+  'El contenido de odio en redes aumentó un 38% desde el inicio de la pandemia.',
+  'Las amenazas violentas en conversaciones online crecieron un 22% desde 2020.',
+  'Solo el 35% del contenido de odio reportado fue eliminado en un monitoreo de 2024.',
+  'En el Mundial 2026, el abuso online aumentó 13 veces respecto a la edición anterior.',
+  'El 11% del abuso detectado durante el Mundial 2026 tuvo motivación racista.',
+];
+
+const HATE_QUESTIONS = [
+  '¿Qué suele provocar el hate?',
+  '¿Quién puede recibir hate?',
+  '¿El hate puede ser positivo?',
+  '¿Qué emoción puede generar?',
+  '¿Qué acción evita ver comentarios ofensivos?',
+  '¿Qué se puede hacer con un comentario ofensivo?',
+  '¿Qué debemos pensar antes de escribir?',
+  '¿Qué puede afectar el hate?',
+  '¿Qué debe hacerse con un acosador/hater?',
+  '¿Cómo crees que debe combatirse el hate?',
 ];
 
 let typewriterTimeout = null;
@@ -73,12 +98,17 @@ let player = {};
 let pacmans  = [];   // [{ent, path, bfsTimer, isRandom, speed}]
 let boostTimer = 0;
 let boostColor = '#00c8ff';
-let wave = 0;        // how many times dots were fully cleared
+let wave = 0;
 let gameRunning = false;
 let startTime   = 0;
-let bestScore   = 0;
+let bestScore   = parseInt(localStorage.getItem('hateman_best') || '0');
 let animFrame   = null;
 let lastTime    = 0;
+let shakeTimer  = 0;
+let particles   = [];  // [{x,y,vx,vy,age,color,size}]
+let trail       = [];  // [{x, y, age}]
+let nearTimer   = 0;   // cooldown so shake doesn't spam
+let pacmansSleeping = true; // true until player leaves the jail area
 
 let joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0 };
 const JOY_R    = 55;
@@ -86,6 +116,30 @@ const JOY_KNOB = 22;
 const JOY_DEAD = 10;
 
 function cloneMap() { return RAW_MAP.map(r => [...r]); }
+
+function countDots() {
+  let n = 0;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (map[r][c] === 0 || map[r][c] === 3) n++;
+  return n;
+}
+
+function spawnParticles(x, y, color) {
+  const count = 10;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+    const speed = CELL * (0.8 + Math.random() * 1.4);
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      age: 0,
+      color,
+      size: Math.max(2, CELL * (0.12 + Math.random() * 0.12)),
+    });
+  }
+}
 
 function isWalkable(c, r) {
   if (r < 0 || r >= ROWS) return false;
@@ -143,7 +197,7 @@ function bfs(sc, sr, gc, gr) {
 }
 
 function drawScene() {
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = '#0d0d0f';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   for (let row = 0; row < ROWS; row++) {
@@ -180,8 +234,69 @@ function drawScene() {
 
   for (const p of pacmans) {
     drawPacman(p.ent.x, p.ent.y, p.ent.mouthAngle, p.ent.dx, p.ent.dy, '#ffff00');
+    if (pacmansSleeping) {
+      const t = Date.now() / 1000;
+      const zs = ['z', 'Z', 'Z'];
+      for (let i = 0; i < 3; i++) {
+        const cycle = (t * 0.8 + i * 0.5) % 3;
+        const alpha = cycle < 2 ? cycle * 0.5 : (3 - cycle) * 0.5;
+        const rise  = cycle * CELL * 0.7;
+        const size  = CELL * (0.25 + i * 0.1);
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.fillStyle = '#aaddff';
+        ctx.font = `bold ${size}px sans-serif`;
+        ctx.fillText(zs[i], p.ent.x + CELL * 0.3 + i * size * 0.6, p.ent.y - CELL * 0.5 - rise);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  // Trail — only during boost, color from energizer
+  for (const t of trail) {
+    const alpha = (1 - t.age) * 0.45;
+    const r = CELL * 0.44 * (0.3 + 0.7 * (1 - t.age));
+    const bigint = parseInt((t.color || '#ffffff').slice(1), 16);
+    const tr = (bigint >> 16) & 255;
+    const tg = (bigint >> 8) & 255;
+    const tb = bigint & 255;
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y, r * 0.88, r, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${tr},${tg},${tb},${alpha})`;
+    ctx.fill();
   }
   drawMask(player.x, player.y, boostTimer > 0, boostColor);
+
+  // Boost bar under mask
+  if (boostTimer > 0) {
+    const pct = boostTimer / BOOST_DURATION;
+    const bw = CELL * 1.6;
+    const bh = Math.max(2, CELL * 0.18);
+    const bx = player.x - bw / 2;
+    const by = player.y + CELL * 0.58;
+    // background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, bh / 2);
+    ctx.fill();
+    // fill
+    const bigint = parseInt(boostColor.slice(1), 16);
+    const br = (bigint >> 16) & 255, bg2 = (bigint >> 8) & 255, bb = bigint & 255;
+    ctx.fillStyle = `rgba(${br},${bg2},${bb},0.9)`;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw * pct, bh, bh / 2);
+    ctx.fill();
+  }
+
+  // Particles
+  for (const p of particles) {
+    const alpha = 1 - p.age;
+    const bigint = parseInt(p.color.slice(1), 16);
+    const pr = (bigint >> 16) & 255, pg = (bigint >> 8) & 255, pb = bigint & 255;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (1 - p.age * 0.5), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${pr},${pg},${pb},${alpha})`;
+    ctx.fill();
+  }
+
   drawJoystick();
 }
 
@@ -443,6 +558,10 @@ function anyCaught() {
   return pacmans.some(p => caught(p.ent));
 }
 
+function inJail(tc, tr) {
+  return tr >= 11 && tr <= 16 && tc >= 9 && tc <= 18;
+}
+
 function dotsRemaining() {
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++)
@@ -464,7 +583,9 @@ function gameLoop(ts) {
   const playerSpeed = boostTimer > 0 ? PLAYER_BOOST_SPEED : PLAYER_SPEED;
   movePlayer(dt, playerSpeed);
 
+
   for (const p of pacmans) {
+    if (pacmansSleeping) continue;
     p.bfsTimer -= dt * 1000;
     if (p.bfsTimer <= 0) {
       p.bfsTimer = p.isRandom ? BFS2_INTERVAL : BFS_INTERVAL;
@@ -479,6 +600,40 @@ function gameLoop(ts) {
   // Boost timer countdown
   if (boostTimer > 0) boostTimer -= dt;
 
+  // Update particles
+  for (const p of particles) {
+    p.x   += p.vx * dt;
+    p.y   += p.vy * dt;
+    p.vx  *= 0.88;
+    p.vy  *= 0.88;
+    p.age  = Math.min(1, p.age + dt * 2.5);
+  }
+  particles = particles.filter(p => p.age < 1);
+
+  // Trail — only during boost, color matches energizer eaten
+  if (boostTimer > 0 && (player.ldx !== 0 || player.ldy !== 0)) {
+    trail.push({ x: player.x, y: player.y, age: 0, color: boostColor });
+    if (trail.length > 10) trail.shift();
+  }
+  for (const t of trail) t.age = Math.min(1, t.age + dt * 4);
+  trail = trail.filter(t => t.age < 1);
+
+  // Near-miss shake — pacman close but not caught
+  if (nearTimer > 0) nearTimer -= dt;
+  if (nearTimer <= 0) {
+    const closest = Math.min(...pacmans.map(p => {
+      const dx = player.x - p.ent.x, dy = player.y - p.ent.y;
+      return Math.sqrt(dx*dx + dy*dy);
+    }));
+    if (closest < CELL * 1.8) {
+      const wrapper = document.getElementById('canvas-wrapper');
+      wrapper.classList.remove('shake');
+      void wrapper.offsetWidth;
+      wrapper.classList.add('shake');
+      nearTimer = 0.5;
+    }
+  }
+
   // Eat dot / energizer under player
   const pc = player.tc, pr = player.tr;
   const tile = map[pr]?.[pc];
@@ -489,20 +644,31 @@ function gameLoop(ts) {
     boostColor = MOGUL[(pr < 13 ? 0 : 2) + (pc > 13 ? 1 : 0)];
   } else if (tile === 0) {
     map[pr][pc] = 2;
+    if (pacmansSleeping) pacmansSleeping = false;
   }
+  document.getElementById('hud-dots').textContent = countDots();
 
   // All dots cleared → reset map, keep pacmans, add one more random
   if ((tile === 0 || tile === 3) && !dotsRemaining()) {
     wave++;
     map = cloneMap();
     const newSpeed = PACMAN2_SPEED + wave * 0.4;
-    spawnPac(26 - (wave % 2) * 24, 30, wave % 2 === 0 ? -1 : 1, true, newSpeed, 50);
+    spawnPac(26 - (wave % 2) * 24, 20, wave % 2 === 0 ? -1 : 1, true, newSpeed, 50);
+    // Wave banner
+    const banner = document.getElementById('wave-banner');
+    banner.textContent = `RONDA ${wave + 1}`;
+    banner.classList.remove('show');
+    void banner.offsetWidth;
+    banner.classList.add('show');
   }
 
-  drawScene();
-  document.getElementById('score').textContent = Math.floor((Date.now() - startTime) / 1000);
-
   if (anyCaught()) { endGame(); return; }
+
+  drawScene();
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('score').textContent = elapsed;
+  document.getElementById('hud-wave').textContent = wave + 1;
+  document.getElementById('hud-pacs').textContent = pacmans.length;
 
   animFrame = requestAnimationFrame(gameLoop);
 }
@@ -511,15 +677,23 @@ function startGame() {
   resize();
   map = cloneMap();
 
-  player = { x: 0, y: 0, tc: 1, tr: 1, wdx: 0, wdy: 0, ldx: 0, ldy: 0 };
+  player = { x: 0, y: 0, tc: 13, tr: 13, wdx: 0, wdy: 0, ldx: 0, ldy: 0 };
   player.x = player.tc * CELL + CELL/2;
   player.y = player.tr * CELL + CELL/2;
 
   stopScatter();
   pacmans = [];
   wave = 0;
-  spawnPac(1,  30,  1, false, PACMAN1_SPEED, 0);
-  spawnPac(26, 30, -1, true,  PACMAN2_SPEED, 150);
+  trail = [];
+  particles = [];
+  nearTimer = 0;
+  pacmansSleeping = true;
+  document.getElementById('canvas-wrapper').classList.remove('shake');
+  document.getElementById('hud-wave').textContent = 1;
+  document.getElementById('hud-pacs').textContent = 2;
+  document.getElementById('hud-dots').textContent = countDots();
+  spawnPac(1,  20,  1, false, PACMAN1_SPEED, 0);
+  spawnPac(26, 20, -1, true,  PACMAN2_SPEED, 150);
   boostTimer = 0;
   joystick.active = false;
 
@@ -585,18 +759,35 @@ function applyDeathEffect(title, text, fx, color) {
     title.classList.add('fx-scatter');
     title.textContent = text;
     startScatter(text, color);
+  } else if (fx === 'fx-matrix') {
+    title.classList.add('fx-matrix');
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
+    const rand = () => chars[Math.floor(Math.random() * chars.length)];
+    let iters = 0;
+    const total = text.length * 6;
+    const interval = setInterval(() => {
+      title.textContent = text.split('').map((c, i) => {
+        if (c === ' ') return ' ';
+        if (iters > i * 6) return c;
+        return rand();
+      }).join('');
+      iters++;
+      if (iters > total) {
+        clearInterval(interval);
+        title.textContent = text;
+      }
+    }, 40);
   } else {
     title.classList.add(fx);
     title.textContent = text;
   }
 }
 
-function endGame() {
-  gameRunning = false;
-  cancelAnimationFrame(animFrame);
+function showDeathOverlay() {
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   if (elapsed > bestScore) {
     bestScore = elapsed;
+    localStorage.setItem('hateman_best', bestScore);
     document.getElementById('best').textContent = bestScore;
   }
   const [text, fx, color] = DEATH_MESSAGES[Math.floor(Math.random() * DEATH_MESSAGES.length)];
@@ -604,8 +795,46 @@ function endGame() {
   applyDeathEffect(title, text, fx, color);
   document.getElementById('overlay-msg').style.display   = 'none';
   document.getElementById('overlay-score').style.display = 'none';
+  const q = document.getElementById('overlay-question');
+  q.textContent = HATE_QUESTIONS[Math.floor(Math.random() * HATE_QUESTIONS.length)];
+  q.style.display = 'block';
+  const s = document.getElementById('overlay-stat');
+  s.textContent = HATE_STATS[Math.floor(Math.random() * HATE_STATS.length)];
+  s.style.display = 'block';
   document.getElementById('btn-start').textContent = 'REINTENTAR';
   document.getElementById('overlay').classList.remove('hidden');
+}
+
+function endGame() {
+  gameRunning = false;
+  cancelAnimationFrame(animFrame);
+
+  // Death animation: red flashes + mask shake, then show overlay
+  const DURATION = 700;
+  const start = performance.now();
+  function deathAnim(now) {
+    const t = Math.min((now - start) / DURATION, 1);
+    drawScene();
+    // Red flash that pulses and fades
+    const flash = Math.sin(t * Math.PI * 5) * (1 - t) * 0.55;
+    if (flash > 0) {
+      ctx.fillStyle = `rgba(220,0,0,${flash})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    // Shake the mask position
+    const shake = (1 - t) * CELL * 0.4;
+    const ox = (Math.random() - 0.5) * shake;
+    const oy = (Math.random() - 0.5) * shake;
+    drawMask(player.x + ox, player.y + oy, false, boostColor);
+    if (t < 1) {
+      requestAnimationFrame(deathAnim);
+    } else {
+      ctx.fillStyle = '#0d0d0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      showDeathOverlay();
+    }
+  }
+  requestAnimationFrame(deathAnim);
 }
 
 function resetOverlayForStart() {
@@ -614,8 +843,10 @@ function resetOverlayForStart() {
   title.className = '';
   title.style.removeProperty('--dc');
   title.textContent = 'HATE-MAN';
-  document.getElementById('overlay-msg').style.display   = '';
-  document.getElementById('overlay-score').style.display = '';
+  document.getElementById('overlay-msg').style.display      = '';
+  document.getElementById('overlay-score').style.display    = '';
+  document.getElementById('overlay-question').style.display = 'none';
+  document.getElementById('overlay-stat').style.display     = 'none';
 }
 
 document.getElementById('btn-start').addEventListener('click', () => {
@@ -625,8 +856,9 @@ document.getElementById('btn-start').addEventListener('click', () => {
 
 resize();
 map = cloneMap();
-player  = { x: CELL + CELL/2, y: CELL + CELL/2, tc: 1, tr: 1, wdx: 0, wdy: 0, ldx: 0, ldy: 0 };
+player  = { x: 13*CELL + CELL/2, y: 13*CELL + CELL/2, tc: 13, tr: 13, wdx: 0, wdy: 0, ldx: 0, ldy: 0 };
 pacmans = [];
-spawnPac(1,  30,  1, false, PACMAN1_SPEED, 0);
-spawnPac(26, 30, -1, true,  PACMAN2_SPEED, 150);
+spawnPac(1,  20,  1, false, PACMAN1_SPEED, 0);
+spawnPac(26, 20, -1, true,  PACMAN2_SPEED, 150);
+document.getElementById('best').textContent = bestScore;
 drawScene();
