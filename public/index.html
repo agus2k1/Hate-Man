@@ -400,6 +400,34 @@
 
     #overlay.hidden { display: none; }
 
+    #wave-blackout {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      position: fixed;
+      inset: 0;
+      background: #0d0d0f;
+      z-index: 15;
+      pointer-events: none;
+    }
+    #wave-blackout-title {
+      color: #ffe600;
+      font-family: 'Boogaloo', sans-serif;
+      font-size: clamp(32px, 7vw, 72px);
+      text-align: center;
+      text-shadow: 0 0 24px #ffe60088;
+      padding: 0 24px;
+    }
+    #wave-blackout-sub {
+      color: #cccccc;
+      font-family: 'Boogaloo', sans-serif;
+      font-size: clamp(16px, 3.5vw, 28px);
+      text-align: center;
+      padding: 0 24px;
+    }
+
     @media (min-width: 768px) {
       #overlay p       { max-width: 560px; }
       #overlay-question { max-width: 560px; }

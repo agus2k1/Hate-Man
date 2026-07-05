@@ -53,6 +53,17 @@ const DEATH_MESSAGES = [
   ['Sos de cuarta',  'fx-zoom-out',   '#c8ff00'],
 ];
 
+const WAVE_SARCASM = [
+  'Hasta un reloj roto acierta dos veces al día.',
+  'Disfrutalo, no va a durar.',
+  'Incluso los perdedores tienen su momento.',
+  'Qué raro que hayas llegado hasta acá.',
+  'No te acostumbres.',
+  'Suerte de principiante.',
+  'Aprovechá porque se viene peor.',
+  '¿Querés una medalla?',
+];
+
 const HATE_STATS = [
   'El 67% de los usuarios ha visto contenido de odio en línea.',
   'Hasta el 85% del odio sigue visible años después de publicarse.',
@@ -107,8 +118,9 @@ let lastTime    = 0;
 let shakeTimer  = 0;
 let particles   = [];  // [{x,y,vx,vy,age,color,size}]
 let trail       = [];  // [{x, y, age}]
-let nearTimer   = 0;   // cooldown so shake doesn't spam
-let pacmansSleeping = true; // true until player leaves the jail area
+let nearTimer   = 0;
+let pacmansSleeping = true;
+let dotsEaten = 0; // TEMP for testing
 
 let joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0 };
 const JOY_R    = 55;
@@ -197,6 +209,8 @@ function bfs(sc, sr, gc, gr) {
 }
 
 function drawScene() {
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = '#0d0d0f';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -263,7 +277,12 @@ function drawScene() {
     ctx.fillStyle = `rgba(${tr},${tg},${tb},${alpha})`;
     ctx.fill();
   }
-  drawMask(player.x, player.y, boostTimer > 0, boostColor);
+  const SCARE_DIST = CELL * 4.5;
+  const scared = pacmans.some(p => {
+    const dx = player.x - p.ent.x, dy = player.y - p.ent.y;
+    return Math.sqrt(dx*dx + dy*dy) < SCARE_DIST;
+  });
+  drawMask(player.x, player.y, boostTimer > 0, boostColor, false, scared);
 
   // Boost bar under mask
   if (boostTimer > 0) {
@@ -301,7 +320,7 @@ function drawScene() {
 }
 
 // Michael Myers mask: oval white face, dark hollow eyes, subtle nose, thin mouth
-function drawMask(px, py, boosted, ringColor, dead) {
+function drawMask(px, py, boosted, ringColor, dead, scared, happy) {
   const r = CELL * 0.44;
 
   // Boost glow ring in energizer color
@@ -342,7 +361,34 @@ function drawMask(px, py, boosted, ringColor, dead) {
   ctx.ellipse(px, py, r * 0.88, r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  if (dead) {
+  if (happy) {
+    // ^ ^ eyes (upward arcs = happy squint)
+    ctx.strokeStyle = '#1a1008';
+    ctx.lineWidth = Math.max(2, CELL * 0.08);
+    ctx.lineCap = 'round';
+    for (const ex of [px - r*0.3, px + r*0.3]) {
+      const ey = py - r*0.15;
+      ctx.beginPath();
+      ctx.arc(ex, ey + r*0.08, r*0.14, Math.PI, 0);
+      ctx.stroke();
+    }
+    // Nose
+    ctx.fillStyle = 'rgba(60,45,35,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(px - r*0.1, py + r*0.15, r*0.07, r*0.04, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(px + r*0.1, py + r*0.15, r*0.07, r*0.04, 0.2, 0, Math.PI*2);
+    ctx.fill();
+    // Big smile
+    ctx.strokeStyle = 'rgba(50,35,25,0.8)';
+    ctx.lineWidth = Math.max(1.5, CELL * 0.06);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px - r*0.35, py + r*0.3);
+    ctx.bezierCurveTo(px - r*0.2, py + r*0.65, px + r*0.2, py + r*0.65, px + r*0.35, py + r*0.3);
+    ctx.stroke();
+  } else if (dead) {
     // X eyes
     ctx.strokeStyle = '#cc0000';
     ctx.lineWidth = Math.max(2, CELL * 0.08);
@@ -413,14 +459,27 @@ function drawMask(px, py, boosted, ringColor, dead) {
     ctx.ellipse(px + r*0.1, py + r*0.15, r*0.07, r*0.04, 0.2, 0, Math.PI*2);
     ctx.fill();
 
-    // Mouth — thin straight slit
-    ctx.strokeStyle = 'rgba(50,35,25,0.65)';
-    ctx.lineWidth = Math.max(1, CELL * 0.04);
+    // Mouth
     ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(px - r*0.22, py + r*0.42);
-    ctx.bezierCurveTo(px - r*0.1, py + r*0.38, px + r*0.1, py + r*0.38, px + r*0.22, py + r*0.42);
-    ctx.stroke();
+    if (scared) {
+      // Open oval mouth
+      ctx.fillStyle = '#1a0a06';
+      ctx.beginPath();
+      ctx.ellipse(px, py + r*0.48, r*0.2, r*0.14, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(50,35,25,0.8)';
+      ctx.lineWidth = Math.max(1, CELL * 0.04);
+      ctx.beginPath();
+      ctx.ellipse(px, py + r*0.48, r*0.2, r*0.14, 0, 0, Math.PI*2);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(50,35,25,0.65)';
+      ctx.lineWidth = Math.max(1, CELL * 0.04);
+      ctx.beginPath();
+      ctx.moveTo(px - r*0.22, py + r*0.42);
+      ctx.bezierCurveTo(px - r*0.1, py + r*0.38, px + r*0.1, py + r*0.38, px + r*0.22, py + r*0.42);
+      ctx.stroke();
+    }
   }
 }
 
@@ -687,21 +746,14 @@ function gameLoop(ts) {
   } else if (tile === 0) {
     map[pr][pc] = 2;
     if (pacmansSleeping) pacmansSleeping = false;
+    dotsEaten++;
   }
   document.getElementById('hud-dots').textContent = countDots();
 
-  // All dots cleared → reset map, keep pacmans, add one more random
-  if ((tile === 0 || tile === 3) && !dotsRemaining()) {
-    wave++;
-    map = cloneMap();
-    const newSpeed = PACMAN2_SPEED + wave * 0.4;
-    spawnPac(26 - (wave % 2) * 24, 20, wave % 2 === 0 ? -1 : 1, true, newSpeed, 50);
-    // Wave banner
-    const banner = document.getElementById('wave-banner');
-    banner.textContent = `RONDA ${wave + 1}`;
-    banner.classList.remove('show');
-    void banner.offsetWidth;
-    banner.classList.add('show');
+  // TEMP: trigger wave after 5 dots eaten
+  if (!dotsRemaining()) {
+    waveTransition();
+    return;
   }
 
   if (anyCaught()) { endGame(); return; }
@@ -729,6 +781,7 @@ function startGame() {
   trail = [];
   particles = [];
   nearTimer = 0;
+  dotsEaten = 0;
   pacmansSleeping = true;
   document.getElementById('canvas-wrapper').classList.remove('shake');
   document.getElementById('hud-wave').textContent = 1;
@@ -845,6 +898,86 @@ function showDeathOverlay() {
   s.style.display = 'block';
   document.getElementById('btn-start').textContent = 'REINTENTAR';
   document.getElementById('overlay').classList.remove('hidden');
+}
+
+function waveTransition() {
+  gameRunning = false;
+  cancelAnimationFrame(animFrame);
+  wave++;
+
+  const sarcasm = WAVE_SARCASM[Math.floor(Math.random() * WAVE_SARCASM.length)];
+  const titleText = `¡Sobreviviste la RONDA ${wave}!`;
+  const FLASH  = 600;
+  const FADE   = 800;
+  const HOLD   = 2200;
+  const start  = performance.now();
+
+  function anim(now) {
+    const e = now - start;
+    const W = canvas.width, H = canvas.height;
+
+    if (e < FLASH) {
+      // Phase 1 — happy mask + yellow flash
+      const t = e / FLASH;
+      drawScene();
+      const fl = Math.sin(t * Math.PI * 4) * (1 - t) * 0.6;
+      if (fl > 0) { ctx.fillStyle = `rgba(255,255,180,${fl})`; ctx.fillRect(0,0,W,H); }
+      const sh = (1 - t) * CELL * 0.3;
+      drawMask(player.x+(Math.random()-.5)*sh, player.y+(Math.random()-.5)*sh, false, boostColor, false, false, true);
+      requestAnimationFrame(anim);
+
+    } else if (e < FLASH + FADE) {
+      // Phase 2 — fade to black
+      const t = (e - FLASH) / FADE;
+      drawScene();
+      ctx.fillStyle = `rgba(13,13,15,${t})`;
+      ctx.fillRect(0, 0, W, H);
+      requestAnimationFrame(anim);
+
+    } else if (e < FLASH + FADE + HOLD) {
+      // Phase 3 — black + text
+      const t = Math.min((e - FLASH - FADE) / 300, 1); // text fade-in over 300ms
+      ctx.fillStyle = '#0d0d0f';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = t;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffe600';
+      ctx.font = `bold ${Math.round(CELL * 2.8)}px 'Boogaloo', sans-serif`;
+      ctx.fillText(titleText, W/2, H/2 - CELL * 0.8);
+      ctx.fillStyle = '#cccccc';
+      ctx.font = `${Math.round(CELL * 1.1)}px 'Boogaloo', sans-serif`;
+      ctx.fillText(sarcasm, W/2, H/2 + CELL * 1.2);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
+      requestAnimationFrame(anim);
+
+    } else {
+      // Done — reset wave
+      map = cloneMap();
+      pacmans = [];
+      player.tc = 13; player.tr = 13;
+      player.x  = player.tc * CELL + CELL/2;
+      player.y  = player.tr * CELL + CELL/2;
+      player.wdx = 0; player.wdy = 0; player.ldx = 0; player.ldy = 0;
+      trail = []; particles = [];
+      boostTimer = 0; nearTimer = 0; dotsEaten = 0;
+      pacmansSleeping = true;
+      spawnPac(1,  20,  1, false, PACMAN1_SPEED, 0);
+      spawnPac(26, 20, -1, true,  PACMAN2_SPEED + wave * 0.4, 150);
+      for (let i = 0; i < wave; i++) {
+        const col = i % 2 === 0 ? 1 : 26;
+        spawnPac(col, 20, col === 1 ? 1 : -1, true, PACMAN2_SPEED + wave * 0.4, 300 + i * 200);
+      }
+      document.getElementById('hud-wave').textContent = wave + 1;
+      document.getElementById('hud-pacs').textContent = pacmans.length;
+      document.getElementById('hud-dots').textContent = countDots();
+      drawScene();
+      gameRunning = true;
+      lastTime = performance.now();
+      animFrame = requestAnimationFrame(gameLoop);
+    }
+  }
+  requestAnimationFrame(anim);
 }
 
 function endGame() {
