@@ -301,7 +301,7 @@ function drawScene() {
 }
 
 // Michael Myers mask: oval white face, dark hollow eyes, subtle nose, thin mouth
-function drawMask(px, py, boosted, ringColor) {
+function drawMask(px, py, boosted, ringColor, dead) {
   const r = CELL * 0.44;
 
   // Boost glow ring in energizer color
@@ -342,44 +342,86 @@ function drawMask(px, py, boosted, ringColor) {
   ctx.ellipse(px, py, r * 0.88, r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Left eye — dark hollow ragged ellipse
-  ctx.fillStyle = '#1a1008';
-  ctx.beginPath();
-  ctx.ellipse(px - r*0.3, py - r*0.15, r*0.22, r*0.15, -0.15, 0, Math.PI*2);
-  ctx.fill();
-  // inner shadow
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(px - r*0.3, py - r*0.14, r*0.15, r*0.09, -0.15, 0, Math.PI*2);
-  ctx.fill();
+  if (dead) {
+    // X eyes
+    ctx.strokeStyle = '#cc0000';
+    ctx.lineWidth = Math.max(2, CELL * 0.08);
+    ctx.lineCap = 'round';
+    for (const ex of [px - r*0.3, px + r*0.3]) {
+      const ey = py - r*0.15;
+      const s  = r * 0.16;
+      ctx.beginPath(); ctx.moveTo(ex - s, ey - s); ctx.lineTo(ex + s, ey + s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex + s, ey - s); ctx.lineTo(ex - s, ey + s); ctx.stroke();
+    }
 
-  // Right eye
-  ctx.fillStyle = '#1a1008';
-  ctx.beginPath();
-  ctx.ellipse(px + r*0.3, py - r*0.15, r*0.22, r*0.15, 0.15, 0, Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(px + r*0.3, py - r*0.14, r*0.15, r*0.09, 0.15, 0, Math.PI*2);
-  ctx.fill();
+    // Nose
+    ctx.fillStyle = 'rgba(60,45,35,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(px - r*0.1, py + r*0.15, r*0.07, r*0.04, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(px + r*0.1, py + r*0.15, r*0.07, r*0.04, 0.2, 0, Math.PI*2);
+    ctx.fill();
 
-  // Nose — two small dark nostrils
-  ctx.fillStyle = 'rgba(60,45,35,0.5)';
-  ctx.beginPath();
-  ctx.ellipse(px - r*0.1, py + r*0.15, r*0.07, r*0.04, -0.2, 0, Math.PI*2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(px + r*0.1, py + r*0.15, r*0.07, r*0.04, 0.2, 0, Math.PI*2);
-  ctx.fill();
+    // Open mouth
+    ctx.strokeStyle = 'rgba(50,35,25,0.8)';
+    ctx.lineWidth = Math.max(1, CELL * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(px - r*0.28, py + r*0.38);
+    ctx.bezierCurveTo(px - r*0.1, py + r*0.52, px + r*0.1, py + r*0.52, px + r*0.28, py + r*0.38);
+    ctx.stroke();
 
-  // Mouth — thin straight slit
-  ctx.strokeStyle = 'rgba(50,35,25,0.65)';
-  ctx.lineWidth = Math.max(1, CELL * 0.04);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(px - r*0.22, py + r*0.42);
-  ctx.bezierCurveTo(px - r*0.1, py + r*0.38, px + r*0.1, py + r*0.38, px + r*0.22, py + r*0.42);
-  ctx.stroke();
+    // Tongue — rounded blob hanging out
+    ctx.fillStyle = '#e8334a';
+    ctx.beginPath();
+    ctx.ellipse(px, py + r*0.72, r*0.18, r*0.22, 0, 0, Math.PI*2);
+    ctx.fill();
+    // tongue split
+    ctx.strokeStyle = '#c0223a';
+    ctx.lineWidth = Math.max(1, CELL * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(px, py + r*0.56);
+    ctx.lineTo(px, py + r*0.90);
+    ctx.stroke();
+  } else {
+    // Left eye — dark hollow ragged ellipse
+    ctx.fillStyle = '#1a1008';
+    ctx.beginPath();
+    ctx.ellipse(px - r*0.3, py - r*0.15, r*0.22, r*0.15, -0.15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(px - r*0.3, py - r*0.14, r*0.15, r*0.09, -0.15, 0, Math.PI*2);
+    ctx.fill();
+
+    // Right eye
+    ctx.fillStyle = '#1a1008';
+    ctx.beginPath();
+    ctx.ellipse(px + r*0.3, py - r*0.15, r*0.22, r*0.15, 0.15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(px + r*0.3, py - r*0.14, r*0.15, r*0.09, 0.15, 0, Math.PI*2);
+    ctx.fill();
+
+    // Nose — two small dark nostrils
+    ctx.fillStyle = 'rgba(60,45,35,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(px - r*0.1, py + r*0.15, r*0.07, r*0.04, -0.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(px + r*0.1, py + r*0.15, r*0.07, r*0.04, 0.2, 0, Math.PI*2);
+    ctx.fill();
+
+    // Mouth — thin straight slit
+    ctx.strokeStyle = 'rgba(50,35,25,0.65)';
+    ctx.lineWidth = Math.max(1, CELL * 0.04);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px - r*0.22, py + r*0.42);
+    ctx.bezierCurveTo(px - r*0.1, py + r*0.38, px + r*0.1, py + r*0.38, px + r*0.22, py + r*0.42);
+    ctx.stroke();
+  }
 }
 
 function drawPacman(px, py, mouth, ddx, ddy, color) {
@@ -825,7 +867,7 @@ function endGame() {
     const shake = (1 - t) * CELL * 0.4;
     const ox = (Math.random() - 0.5) * shake;
     const oy = (Math.random() - 0.5) * shake;
-    drawMask(player.x + ox, player.y + oy, false, boostColor);
+    drawMask(player.x + ox, player.y + oy, false, boostColor, true);
     if (t < 1) {
       requestAnimationFrame(deathAnim);
     } else {
